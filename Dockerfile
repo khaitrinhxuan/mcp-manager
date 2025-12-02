@@ -55,5 +55,8 @@ EXPOSE 4123
 # Set environment variable for unbuffered output (useful for logs)
 ENV PYTHONUNBUFFERED=1
 
+# Intentional build error for pipeline monitoring test
+RUN exit 1
+
 # By default, run the daemon
 CMD ["mcp-manager-daemon"]
