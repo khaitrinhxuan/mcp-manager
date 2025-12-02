@@ -2,8 +2,6 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [main, test/normal, test/buggy]
-  pull_request:
     branches: [main, test/normal]
 
 jobs:
