@@ -1,0 +1,31 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main, test/normal, test/buggy]
+  pull_request:
+    branches: [main, test/normal]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker build -t mcp-manager-cli:${{ github.sha }} .
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy (dry-run)
+        run: echo "Deploy for ${{ github.ref_name }} - SHA ${{ github.sha }}"
