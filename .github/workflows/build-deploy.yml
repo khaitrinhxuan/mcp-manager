@@ -2,28 +2,118 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [main, test/normal]
+    branches: [main, test/normal, test/normal1, test/normal2, test/normal3, test/normal4, test/normal5]
+
+# Prevent concurrent deployments to the same environment
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: mcp-manager-cli
+  REGISTRY: ghcr.io
 
 jobs:
+  # ====================
+  # Stage 1: Build
+  # ====================
   build:
     name: Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
-        run: docker build -t mcp-manager-cli:${{ github.sha }} .
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
+      - name: Build Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/image.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/image.tar
+          retention-days: 1
+
+  # ====================
+  # Stage 2: Test
+  # ====================
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/image.tar
+
+      - name: Run container smoke test
+        run: |
+          echo "Running smoke tests..."
+          # Add your test commands here
+          docker images
+
+  # ====================
+  # Stage 3: Deploy
+  # ====================
   deploy:
     name: Deploy
-    needs: build
     runs-on: ubuntu-latest
-    if: success()
+    needs: [build, test]
+    timeout-minutes: 10
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Deploy (dry-run)
-        run: echo "Deploy for ${{ github.ref_name }} - SHA ${{ github.sha }}"
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/image.tar
+
+      - name: Deploy
+        run: |
+          echo "Deploying to ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Image digest: ${{ needs.build.outputs.image-digest }}"
+          # Add your actual deployment commands here
