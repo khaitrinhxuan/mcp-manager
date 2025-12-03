@@ -1,8 +1,8 @@
-name: Build and Deploy
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, test/normal, test/normal1, test/normal2, test/normal3, test/normal4, test/normal5]
+    branches: [main, test/main]
 
 # Prevent concurrent deployments to the same environment
 concurrency:
