@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, test/main]
+    branches: [main, test/main, test/main-1, test/main-2, test/main-3]
 
 # Prevent concurrent deployments to the same environment
 concurrency:
