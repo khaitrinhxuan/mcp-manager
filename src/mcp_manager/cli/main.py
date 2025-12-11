@@ -37,7 +37,8 @@ def load_api_key():
 load_api_key()
 
 def get_api_key():
-    return API_KEY
+    return API_KEY  # BUG: Missing closing bracket
+    undefined_variable
 
 def get_auth_headers():
     api_key = get_api_key()
