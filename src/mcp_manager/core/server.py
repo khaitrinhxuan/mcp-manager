@@ -77,7 +77,8 @@ class StdioServer:
         if self.status == ServerStatus.STOPPED or not self.session:
             raise RuntimeError("Not connected.")
         tools = await self.session.list_tools()
-        return tools.tools
+        # BUG: Type error - returning string instead of List[Tool]
+        return "invalid_return_type"
 
     async def call_tool(self, tool_name: str, arguments: Dict) -> List[TextContent | ImageContent | EmbeddedResource]:
         if self.status == ServerStatus.STOPPED or not self.session:
