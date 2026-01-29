@@ -1,0 +1,5 @@
+def start_server():
+    return "ok"
+
+def start_server():   # duplicate definition (lint/test fail)
+    return 123
