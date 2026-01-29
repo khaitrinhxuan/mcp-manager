@@ -166,9 +166,4 @@ jobs:
         run: |
           echo "API Key: $API_KEY"  # ERROR: Logging secrets
           echo "DB Password: $DATABASE_PASSWORD"  # ERROR: Logging secrets
-          
-      # ERROR: No input validation
-      - name: Unvalidated input
-        run: |
-          echo "User input: ${{ github.event.head_commit.message }}"  # ERROR: Could contain malicious content
-          eval "${{ github.event.head_commit.message }}"  # ERROR: Code injection vulnerability
+        
