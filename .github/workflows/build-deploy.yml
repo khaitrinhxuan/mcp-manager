@@ -1,31 +1,169 @@
-name: Build and Deploy
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, test/normal, test/buggy]
+    branches: [main, test/main]
   pull_request:
-    branches: [main, test/normal]
+    branches: [main]
+
+# Prevent concurrent deployments to the same environment
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: mcp-manager-cli
+  REGISTRY: ghcr.io
 
 jobs:
+  # ====================
+  # Stage 1: Build
+  # ====================
   build:
     name: Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
-        run: docker build -t mcp-manager-cli:${{ github.sha }} .
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
+      - name: Build Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/image.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/image.tar
+          retention-days: 1
+
+      # ERROR: Missing required step - security scan
+      - name: Run security scan
+        run: |
+          echo "Security scan should be implemented here"
+          # This is a placeholder - real security scanning missing
+
+  # ====================
+  # Stage 2: Test
+  # ====================
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/image.tar
+
+      - name: Run container smoke test
+        run: |
+          echo "Running smoke tests..."
+          # ERROR: Inadequate testing - only checking docker images
+          docker images
+          
+      # ERROR: Missing unit tests
+      # ERROR: Missing integration tests
+      # ERROR: Missing code coverage reporting
+      - name: Placeholder for missing tests
+        run: |
+          echo "WARNING: No actual tests are being run!"
+          echo "This is a critical security and quality issue"
+
+  # ====================
+  # Stage 3: Deploy
+  # ====================
   deploy:
     name: Deploy
-    needs: build
     runs-on: ubuntu-latest
-    if: success()
+    needs: [build, test]
+    timeout-minutes: 10
+    # ERROR: Missing proper environment protection rules
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Deploy (dry-run)
-        run: echo "Deploy for ${{ github.ref_name }} - SHA ${{ github.sha }}"
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/image.tar
+
+      # ERROR: No authentication step for deployment
+      # ERROR: No rollback mechanism
+      # ERROR: No health checks after deployment
+      - name: Deploy
+        run: |
+          echo "Deploying to ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Image digest: ${{ needs.build.outputs.image-digest }}"
+          # ERROR: No actual deployment commands - this is just echo statements!
+          echo "WARNING: This deployment does nothing!"
+          
+      # ERROR: Missing post-deployment verification
+      - name: Missing health check
+        run: |
+          echo "ERROR: No health checks implemented"
+          echo "Production deployment without verification is dangerous"
+
+  # ====================
+  # Stage 4: Security Issues
+  # ====================
+  security-issues:
+    name: Security Problems
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()  # ERROR: This will run even if previous jobs fail
+    steps:
+      # ERROR: Using outdated action versions
+      - name: Checkout with old action
+        uses: actions/checkout@v2  # ERROR: Should use v4
+        
+      # ERROR: Hardcoded secrets in workflow
+      - name: Expose secrets
+        env:
+          API_KEY: "sk-1234567890abcdef"  # ERROR: Hardcoded secret
+          DATABASE_PASSWORD: "admin123"   # ERROR: Hardcoded password
+        run: |
+          echo "API Key: $API_KEY"  # ERROR: Logging secrets
+          echo "DB Password: $DATABASE_PASSWORD"  # ERROR: Logging secrets
+        
