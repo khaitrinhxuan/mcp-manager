@@ -1,5 +1,5 @@
 # Use official Python slim Bookworm image
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-8
 
 # Set working directory
 WORKDIR /app
@@ -54,6 +54,9 @@ EXPOSE 4123
 
 # Set environment variable for unbuffered output (useful for logs)
 ENV PYTHONUNBUFFERED=1
+
+# Intentional build error for pipeline monitoring test
+RUN exit 1
 
 # By default, run the daemon
 CMD ["mcp-manager-daemon"]
