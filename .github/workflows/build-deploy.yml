@@ -163,7 +163,4 @@ jobs:
         env:
           API_KEY: "sk-1234567890abcdef"  # ERROR: Hardcoded secret
           DATABASE_PASSWORD: "admin123"   # ERROR: Hardcoded password
-        run: |
-          echo "API Key: $API_KEY"  # ERROR: Logging secrets
-          echo "DB Password: $DATABASE_PASSWORD"  # ERROR: Logging secrets
         
