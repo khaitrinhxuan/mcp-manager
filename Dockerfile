@@ -1,5 +1,5 @@
 # Use official Python slim Bookworm image
-FROM python:3.12-slim-8
+FROM python:3.12-slim-bookworm
 
 # Set working directory
 WORKDIR /app
@@ -17,8 +17,6 @@ RUN apt-get update \
         docker.io \
         unzip \
     && rm -rf /var/lib/apt/lists/*
-
-E
 
 # Install Node.js 20.x from NodeSource
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
