@@ -1,5 +1,5 @@
 # Use official Python slim Bookworm image
-FROM python:3.12-slim-8
+FROM python:3.12-slim-bookworm
 
 # Set working directory
 WORKDIR /app
