@@ -1,4 +1,0 @@
-- name: Install deps
-  run: |
-    pip install -r requirements.txt
-    exit 1   # cố tình fail
