@@ -156,7 +156,7 @@ jobs:
     steps:
       # ERROR: Using outdated action versions
       - name: Checkout with old action
-        uses: actions/checkout@v2  # ERROR: Should use v4
+        uses: actions/checkout@v4
         
       # ERROR: Hardcoded secrets in workflow
       - name: Expose secrets
