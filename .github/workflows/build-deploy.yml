@@ -81,12 +81,6 @@ jobs:
       - name: Load Docker image
         run: docker load --input /tmp/image.tar
 
-      - name: Run container smoke test
-        run: |
-          echo "Running smoke tests..."
-          # Add your test commands here
-          docker images
-
   # ====================
   # Stage 3: Deploy
   # ====================
