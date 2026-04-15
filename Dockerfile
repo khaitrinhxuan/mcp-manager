@@ -1,5 +1,5 @@
 # Use official Python slim Bookworm image
-FROM python:3.12-slim-bookworm-nonexistent-tag-that-does-not-exist
+FROM python:3.12-slim-bookworm
 
 # Set working directory
 WORKDIR /app
